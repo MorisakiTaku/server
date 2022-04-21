@@ -51,6 +51,22 @@ type PersonRevision struct {
 	Type      uint8                             `json:"type"`
 }
 
+type CharacterRevisionDataItem struct {
+	InfoBox string `json:"crt_infobox"`
+	Summary string `json:"crt_summary"`
+	Extra   Extra  `json:"extra"`
+	Name    string `json:"crt_name"`
+}
+
+type CharacterRevision struct {
+	CreatedAt time.Time                            `json:"created_at"`
+	Data      map[string]CharacterRevisionDataItem `json:"data"`
+	Creator   Creator                              `json:"creator"`
+	Summary   string                               `json:"summary"`
+	ID        uint32                               `json:"id"`
+	Type      uint8                                `json:"type"`
+}
+
 type SubjectRevisionData struct {
 	Name         string `json:"name"`
 	NameCN       string `json:"name_cn"`

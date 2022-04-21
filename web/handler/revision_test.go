@@ -104,6 +104,78 @@ func TestHandler_GetPersonRevision_HappyPath(t *testing.T) {
 	require.Equal(t, uint32(348475), r.ID)
 }
 
+func TestHandler_ListCharacterRevision_HappyPath(t *testing.T) {
+	t.Parallel()
+	m := &mocks.RevisionRepo{}
+	m.EXPECT().ListCharacterRelated(mock.Anything, uint32(9), 30, 0).Return([]model.Revision{{ID: 878324}}, nil)
+	m.EXPECT().CountCharacterRelated(mock.Anything, uint32(9)).Return(11, nil)
+
+	app := test.GetWebApp(t, test.Mock{RevisionRepo: m})
+
+	req := httptest.NewRequest(http.MethodGet, "/v0/revisions/characters?character_id=9", http.NoBody)
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var r res.Paged
+
+	err = json.NewDecoder(resp.Body).Decode(&r)
+
+	require.NoError(t, err)
+
+	if result, ok := r.Data.([]interface{})[0].(map[string]interface{}); ok {
+		if id, ok := result["id"].(float64); ok {
+			require.Equal(t, uint32(878324), uint32(id))
+		}
+	}
+}
+
+func TestHandler_ListCharacterRevision_Bad_ID(t *testing.T) {
+	t.Parallel()
+	m := &mocks.RevisionRepo{}
+
+	app := test.GetWebApp(t, test.Mock{RevisionRepo: m})
+
+	badIDs := []string{"-1", "a", "0"}
+
+	for _, id := range badIDs {
+		id := id
+		t.Run(id, func(t *testing.T) {
+			t.Parallel()
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/v0/revisions/characters?character_id=%s", id), http.NoBody)
+
+			resp, err := app.Test(req, -1)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		})
+	}
+}
+
+func TestHandler_GetCharacterRevision_HappyPath(t *testing.T) {
+	t.Parallel()
+	m := &mocks.RevisionRepo{}
+	m.EXPECT().GetCharacterRelated(mock.Anything, uint32(1)).Return(model.Revision{ID: 158925}, nil)
+
+	app := test.GetWebApp(t, test.Mock{RevisionRepo: m})
+
+	req := httptest.NewRequest(http.MethodGet, "/v0/revisions/characters/1", http.NoBody)
+
+	resp, err := app.Test(req, -1)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	var r res.CharacterRevision
+	err = json.NewDecoder(resp.Body).Decode(&r)
+	require.NoError(t, err)
+	require.Equal(t, uint32(158925), r.ID)
+}
+
 func TestHandler_ListSubjectRevision_HappyPath(t *testing.T) {
 	t.Parallel()
 	m := &mocks.RevisionRepo{}

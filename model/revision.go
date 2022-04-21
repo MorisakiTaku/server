@@ -56,6 +56,13 @@ type PersonRevisionDataItem struct {
 	Name       string     `json:"prsn_name"`
 }
 
+type CharacterRevisionDataItem struct {
+	InfoBox string `json:"crt_infobox"`
+	Summary string `json:"crt_summary"`
+	Extra   Extra  `json:"extra"`
+	Name    string `json:"crt_name"`
+}
+
 type SubjectRevisionData struct {
 	Name         string
 	NameCN       string

@@ -53,3 +53,27 @@ func PersonRevisionTypes() []uint8 {
 		RevisionTypePersonSubjectRelation,
 	}
 }
+
+func CharacterRevisionTypes() []uint8 {
+	return []uint8{
+		RevisionTypeCharacter,
+		RevisionTypeCharacterSubjectRelation,
+		RevisionTypeCharacterCastRelation,
+		RevisionTypeCharacterMerge,
+		RevisionTypeCharacterErase,
+	}
+}
+
+func SubjectRevisionTypes() []uint8 {
+	return []uint8{
+		RevisionTypeSubject,
+		RevisionTypeSubjectCharacterRelation,
+		RevisionTypeSubjectCastRelation,
+		RevisionTypeSubjectPersonRelation,
+		RevisionTypeSubjectMerge,
+		RevisionTypeSubjectErase,
+		RevisionTypeSubjectRelation,
+		RevisionTypeSubjectLock,
+		RevisionTypeSubjectUnlock,
+	}
+}

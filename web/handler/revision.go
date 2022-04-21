@@ -108,6 +108,79 @@ func (h Handler) GetPersonRevision(c *fiber.Ctx) error {
 
 }
 
+func (h Handler) ListCharacterRevision(c *fiber.Ctx) error {
+	page, err := getPageQuery(c, defaultPageLimit, defaultMaxPageLimit)
+	if err != nil {
+		return err
+	}
+	characterID, err := strparse.Uint32(c.Query("character_id"))
+	if err != nil || characterID <= 0 {
+		return fiber.NewError(fiber.StatusBadRequest,
+			fmt.Sprintf("bad query character_id: %s", c.Query("character_id")))
+	}
+
+	return h.listCharacterRevision(c, characterID, page)
+}
+
+func (h Handler) listCharacterRevision(c *fiber.Ctx, characterID model.CharacterIDType, page pageQuery) error {
+	var response = res.Paged{
+		Limit:  page.Limit,
+		Offset: page.Offset,
+	}
+	count, err := h.r.CountCharacterRelated(c.Context(), characterID)
+	if err != nil {
+		return errgo.Wrap(err, "revision.CountCharacterRelated")
+	}
+
+	if count == 0 {
+		response.Data = []int{}
+		return c.JSON(response)
+	}
+
+	if err = page.check(count); err != nil {
+		return err
+	}
+
+	response.Total = count
+
+	revisions, err := h.r.ListCharacterRelated(c.Context(), characterID, page.Limit, page.Offset)
+
+	if err != nil {
+		return errgo.Wrap(err, "revision.ListCharacterRelated")
+	}
+
+	data := make([]res.CharacterRevision, len(revisions))
+
+	creatorMap, err := h.u.GetByIDs(c.Context(), listUniqueCreatorID(revisions)...)
+
+	if err != nil {
+		return errgo.Wrap(err, "user.GetByIDs")
+	}
+	for i := range revisions {
+		data[i] = convertModelCharacterRevision(&revisions[i], creatorMap)
+	}
+	response.Data = data
+	return c.JSON(response)
+}
+
+func (h Handler) GetCharacterRevision(c *fiber.Ctx) error {
+	id, err := strparse.Uint32(c.Params("id"))
+	if err != nil || id <= 0 {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Sprintf("bad param id: %s", c.Params("id")))
+	}
+	r, err := h.r.GetCharacterRelated(c.Context(), id)
+	if err != nil {
+		return fiber.ErrNotFound
+	}
+
+	creatorMap, err := h.u.GetByIDs(c.Context(), r.CreatorID)
+	if err != nil {
+		return errgo.Wrap(err, "user.GetByIDs")
+	}
+
+	return c.JSON(convertModelCharacterRevision(&r, creatorMap))
+}
+
 func (h Handler) ListSubjectRevision(c *fiber.Ctx) error {
 	page, err := getPageQuery(c, defaultPageLimit, defaultMaxPageLimit)
 	if err != nil {
@@ -226,6 +299,35 @@ func convertModelPersonRevision(r *model.Revision, creatorMap map[model.IDType]m
 					Illustrator: item.Profession.Illustrator,
 					Actor:       item.Profession.Actor,
 				},
+				Extra: res.Extra{
+					Img: item.Extra.Img,
+				},
+				Name: item.Name,
+			}
+		}
+	}
+	return ret
+}
+
+func convertModelCharacterRevision(r *model.Revision, creatorMap map[model.IDType]model.User) res.CharacterRevision {
+	creator := creatorMap[r.CreatorID]
+	ret := res.CharacterRevision{
+		ID:      r.ID,
+		Type:    r.Type,
+		Summary: r.Summary,
+		Creator: res.Creator{
+			Username: creator.UserName,
+			Nickname: creator.UserName,
+		},
+		CreatedAt: r.CreatedAt,
+		Data:      nil,
+	}
+	if data, ok := r.Data.(map[string]model.CharacterRevisionDataItem); ok {
+		ret.Data = make(map[string]res.CharacterRevisionDataItem, len(data))
+		for id, item := range data {
+			ret.Data[id] = res.CharacterRevisionDataItem{
+				InfoBox: item.InfoBox,
+				Summary: item.Summary,
 				Extra: res.Extra{
 					Img: item.Extra.Img,
 				},

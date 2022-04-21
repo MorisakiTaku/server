@@ -102,6 +102,51 @@ func (r mysqlRepo) GetPersonRelated(ctx context.Context, id model.IDType) (model
 	return convertRevisionDao(revision, data), nil
 }
 
+func (r mysqlRepo) CountCharacterRelated(ctx context.Context, id model.CharacterIDType) (int64, error) {
+	c, err := r.q.RevisionHistory.WithContext(ctx).
+		Where(r.q.RevisionHistory.Mid.Eq(id), r.q.RevisionHistory.Type.In(model.CharacterRevisionTypes()...)).Count()
+	if err != nil {
+		return 0, errgo.Wrap(err, "dal")
+	}
+	return c, nil
+}
+
+func (r mysqlRepo) ListCharacterRelated(
+	ctx context.Context, characterID model.CharacterIDType, limit int, offset int,
+) ([]model.Revision, error) {
+	revisions, err := r.q.RevisionHistory.WithContext(ctx).
+		Where(r.q.RevisionHistory.Mid.Eq(characterID), r.q.RevisionHistory.Type.In(model.CharacterRevisionTypes()...)).
+		Order(r.q.RevisionHistory.ID.Desc()).
+		Limit(limit).
+		Offset(offset).Find()
+	if err != nil {
+		return nil, errgo.Wrap(err, "dal")
+	}
+
+	result := make([]model.Revision, len(revisions))
+	for i, revision := range revisions {
+		result[i] = convertCharacterRevisionDao(revision, nil)
+	}
+	return result, nil
+}
+
+func (r mysqlRepo) GetCharacterRelated(ctx context.Context, id model.IDType) (model.Revision, error) {
+	revision, err := r.q.RevisionHistory.WithContext(ctx).
+		Where(r.q.RevisionHistory.ID.Eq(id),
+			r.q.RevisionHistory.Type.In(model.CharacterRevisionTypes()...)).
+		First()
+
+	if err != nil {
+		return model.Revision{}, errgo.Wrap(err, "dal")
+	}
+	data, err := r.q.RevisionText.WithContext(ctx).
+		Where(r.q.RevisionText.TextID.Eq(revision.TextID)).First()
+	if err != nil {
+		return model.Revision{}, errgo.Wrap(err, "dal")
+	}
+	return convertCharacterRevisionDao(revision, data), nil
+}
+
 func (r mysqlRepo) CountSubjectRelated(ctx context.Context, id model.SubjectIDType) (int64, error) {
 	c, err := r.q.SubjectRevision.WithContext(ctx).
 		Where(r.q.SubjectRevision.SubjectID.Eq(id)).Count()
@@ -212,12 +257,45 @@ func castPersonData(raw map[string]interface{}) map[string]model.PersonRevisionD
 	return items
 }
 
+func castCharacterData(raw map[string]interface{}) map[string]model.CharacterRevisionDataItem {
+	if raw == nil {
+		return nil
+	}
+	items := make(map[string]model.CharacterRevisionDataItem, len(raw))
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		TagName:    "json",
+		DecodeHook: safeDecodeExtra,
+		Result:     &items,
+	})
+	if err != nil {
+		return nil
+	}
+	if err := decoder.Decode(raw); err != nil {
+		return nil
+	}
+	return items
+}
+
 func convertRevisionDao(r *dao.RevisionHistory, data *dao.RevisionText) model.Revision {
 	var text map[string]model.PersonRevisionDataItem
 	if data != nil {
 		text = castPersonData(convertRevisionText(data.Text))
 	}
+	return model.Revision{
+		ID:        r.ID,
+		Type:      r.Type,
+		Summary:   r.Summary,
+		CreatorID: r.CreatorID,
+		CreatedAt: time.Unix(int64(r.CreatedAt), 0),
+		Data:      text,
+	}
+}
 
+func convertCharacterRevisionDao(r *dao.RevisionHistory, data *dao.RevisionText) model.Revision {
+	var text map[string]model.CharacterRevisionDataItem
+	if data != nil {
+		text = castCharacterData(convertRevisionText(data.Text))
+	}
 	return model.Revision{
 		ID:        r.ID,
 		Type:      r.Type,
