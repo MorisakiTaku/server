@@ -145,7 +145,8 @@ func TestHandler_ListCharacterRevision_Bad_ID(t *testing.T) {
 		id := id
 		t.Run(id, func(t *testing.T) {
 			t.Parallel()
-			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/v0/revisions/characters?character_id=%s", id), http.NoBody)
+			req := httptest.NewRequest(http.MethodGet,
+				fmt.Sprintf("/v0/revisions/characters?character_id=%s", id), http.NoBody)
 
 			resp, err := app.Test(req, -1)
 			require.NoError(t, err)
